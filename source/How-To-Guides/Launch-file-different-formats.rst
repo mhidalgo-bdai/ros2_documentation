@@ -10,12 +10,321 @@ Using Python, XML, and YAML for ROS 2 Launch Files
    :local:
 
 ROS 2 launch files can be written in Python, XML, and YAML.
-This guide shows how to use these different formats to accomplish the same task, as well as has some discussion on when to use each format.
+This guide shows how to use these different formats to accomplish the same task. It also discusses when to use each format.
 
-Launch file examples
---------------------
+Examples
+--------
 
-Below is a launch file implemented in Python, XML, and YAML.
+Taking arguments
+^^^^^^^^^^^^^^^^
+
+Each launch file performs the following actions:
+
+* Declares arguments with and without defaults.
+* Logs a message that interpolates those arguments.
+
+.. tabs::
+
+   .. group-tab:: Python
+
+      .. code-block:: python
+
+        # example_launch.py
+
+        from launch import LaunchDescription
+        from launch.actions import DeclareLaunchArgument
+        from launch.actions import LogInfo
+        from launch.substitutions import LaunchConfiguration
+
+        def generate_launch_description():
+            return LaunchDescription([
+                DeclareLaunchArgument('who'),
+                DeclareLaunchArgument('where', default_value='home'),
+
+                LogInfo(msg=[LaunchConfiguration('who'), ' is at ', LaunchConfiguration('where')])
+            ])
+
+
+   .. group-tab:: XML
+
+      .. code-block:: xml
+
+        <!-- example_launch.xml -->
+
+        <launch>
+            <arg name="who"/>
+            <arg name="where" default="home"/>
+
+            <log message="$(var who) is at $(var where)"/>
+        </launch>
+
+   .. group-tab:: YAML
+
+      .. code-block:: yaml
+
+        # example_launch.yaml
+
+        launch:
+        - arg:
+            name: "who"
+        - arg:
+            name: "where"
+            default: "home"
+        - log:
+            message: "$(var who) is at $(var where)"
+
+Requiring processes
+^^^^^^^^^^^^^^^^^^^
+
+Each launch file performs the following actions:
+
+* Declares an argument with defaults.
+* Sleeps for some time, then shuts down launch.
+
+.. tabs::
+
+   .. group-tab:: Python
+
+      .. code-block:: python
+
+        # example_launch.py
+
+        from launch import LaunchDescription
+        from launch.actions import DeclareLaunchArgument
+        from launch.actions import ExecuteProcess
+        from launch.actions import LogInfo
+        from launch.actions import Shutdown
+        from launch.substitutions import LaunchConfiguration
+
+        def generate_launch_description():
+            return LaunchDescription([
+                DeclareLaunchArgument('duration', default_value='10'),
+                ExecuteProcess(
+                    cmd=['sleep', LaunchConfiguration('duration')],
+                    on_exit=[
+                        LogInfo(msg='Done sleeping!'),
+                        Shutdown(reason='main process terminated')
+                    ]
+                ),
+                LogInfo(msg=['Sleeping for ', LaunchConfiguration('duration'), ' seconds']),
+            ])
+
+   .. group-tab:: XML
+
+      .. code-block:: xml
+
+        <!-- Currently unsupported -->
+
+   .. group-tab:: YAML
+
+      .. code-block:: yaml
+
+        # Currently unsupported
+
+Replicating hierarchies
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Each launch file performs the following actions:
+
+* Declares an argument without defaults.
+* Generates namespaced groups iteratively based on that argument.
+
+.. tabs::
+
+   .. group-tab:: Python
+
+      .. code-block:: python
+
+        # example_launch.py
+
+        from launch import LaunchDescription
+        from launch.actions import DeclareLaunchArgument
+        from launch.actions import GroupAction
+        from launch.actions import OpaqueFunction
+        from launch.substitutions import LaunchConfiguration
+        from launch_ros.actions import Node
+        from launch_ros.actions import PushRosNamespace
+
+        def generate_turtles_description(context, turtles):
+            return [
+                GroupAction(
+                    actions=[
+                        PushRosNamespace(turtle_name),
+                        Node(
+                            package='turtlesim',
+                            executable='turtlesim_node',
+                            output='screen')
+                    ]
+                )
+                for turtle_name in turtles.perform(context).split()
+            ]
+
+        def generate_launch_description():
+            return LaunchDescription([
+                DeclareLaunchArgument('turtles'),
+                OpaqueFunction(
+                    function=generate_turtles_description,
+                    args=[LaunchConfiguration('turtles')])
+            ])
+
+   .. group-tab:: XML
+
+      .. code-block:: xml
+
+        <!-- Currently unsupported -->
+
+   .. group-tab:: YAML
+
+      .. code-block:: yaml
+
+        # Currently unsupported
+
+Cleaning after
+^^^^^^^^^^^^^^
+
+Each launch file performs the following actions:
+
+* Declares an argument without defaults.
+* Registers an action to execute on shutdown.
+* Forces shutdown after a time specified by the argument.
+
+.. tabs::
+
+   .. group-tab:: Python
+
+      .. code-block:: python
+
+        # example_launch.py
+
+        from launch import LaunchDescription
+        from launch.actions import DeclareLaunchArgument
+        from launch.actions import ExecuteProcess
+        from launch.actions import RegisterEventHandler
+        from launch.actions import Shutdown
+        from launch.actions import TimerAction
+        from launch.event_handlers import OnShutdown
+        from launch.substitutions import LaunchConfiguration
+
+        def generate_launch_description():
+            return LaunchDescription([
+                DeclareLaunchArgument('timeout'),
+                RegisterEventHandler(OnShutdown(on_shutdown=[
+                    ExecuteProcess(cmd=['rm', '-f', '/tmp/resource']),
+                ])),
+                ExecuteProcess(cmd=['touch', '/tmp/resource']),
+                TimerAction(period=LaunchConfiguration('timeout'), actions=[
+                    Shutdown(reason='launch timed out!')
+                ])
+            ])
+
+   .. group-tab:: XML
+
+      .. code-block:: xml
+
+        <!-- Currently unsupported -->
+
+   .. group-tab:: YAML
+
+      .. code-block:: yaml
+
+        # Currently unsupported
+
+Managing lifecycles
+^^^^^^^^^^^^^^^^^^^
+
+Each launch file performs the following actions:
+
+* Registers a custom event handler to manage lifecycles synchronously.
+* Starts talker and listener managed nodes.
+
+.. tabs::
+
+   .. group-tab:: Python
+
+      .. code-block:: python
+
+        # example_launch.py
+
+        from launch import LaunchDescription
+        from launch.actions import RegisterEventHandler
+        from launch.actions import EmitEvent
+        from launch.event_handler import BaseEventHandler
+        from launch.events import Shutdown
+        from launch.events import matches_action
+        from launch.events.process import ProcessStarted
+        from launch_ros.actions import LifecycleNode
+        from launch_ros.events.lifecycle import ChangeState
+        from launch_ros.events.lifecycle import StateTransition
+
+        import lifecycle_msgs.msg
+
+        class LifecycleManager(BaseEventHandler):
+
+            BRINGUP_SEQUENCE = {
+                lifecycle_msgs.msg.State.PRIMARY_STATE_UNCONFIGURED: lifecycle_msgs.msg.Transition.TRANSITION_CONFIGURE,
+                lifecycle_msgs.msg.State.PRIMARY_STATE_INACTIVE: lifecycle_msgs.msg.Transition.TRANSITION_ACTIVATE
+            }
+
+            SHUTDOWN_SEQUENCE = {
+                lifecycle_msgs.msg.State.PRIMARY_STATE_UNCONFIGURED: lifecycle_msgs.msg.Transition.TRANSITION_UNCONFIGURED_SHUTDOWN,
+                lifecycle_msgs.msg.State.PRIMARY_STATE_INACTIVE: lifecycle_msgs.msg.Transition.TRANSITION_INACTIVE_SHUTDOWN,
+                lifecycle_msgs.msg.State.PRIMARY_STATE_ACTIVE: lifecycle_msgs.msg.Transition.TRANSITION_ACTIVE_SHUTDOWN
+            }
+
+            def __init__(self, nodes):
+                self.managees = {node: lifecycle_msgs.msg.State.PRIMARY_STATE_UNKNOWN for node in nodes}
+                matcher = (lambda event: (
+                    isinstance(event, (ProcessStarted, StateTransition)) and event.action in self.managees))
+                super().__init__(matcher=matcher)
+
+            def handle(self, event, context):
+                if isinstance(event, ProcessStarted):
+                    self.managees[event.action] = lifecycle_msgs.msg.State.PRIMARY_STATE_UNCONFIGURED
+                if isinstance(event, StateTransition):
+                    self.managees[event.action] = event.msg.goal_state.id
+                states = list(set(self.managees.values()))
+                common_state = states[0] if len(states) == 1 else None
+                if common_state in self.BRINGUP_SEQUENCE:
+                    matcher = lambda action: action in self.managees
+                    return [
+                        EmitEvent(event=ChangeState(
+                            lifecycle_node_matcher=matcher,
+                            transition_id=self.BRINGUP_SEQUENCE[common_state]))]
+                return None
+
+        def generate_launch_description():
+            first_talker_node = LifecycleNode(
+                package='lifecycle', executable='lifecycle_talker',
+                name='first_talker', namespace='', output='screen')
+            second_talker_node = LifecycleNode(
+                package='lifecycle', executable='lifecycle_talker',
+                name='second_talker', namespace='', output='screen')
+            listener_node = LifecycleNode(
+                package='lifecycle', executable='lifecycle_listener',
+                name='listener', namespace='', output='screen',
+                remappings=[('/lc_talker/transition_event',
+                             '/first_talker/transition_event')])
+            manager = LifecycleManager([first_talker_node, second_talker_node])
+            return LaunchDescription([
+                RegisterEventHandler(manager),
+                first_talker_node, second_talker_node, listener_node
+            ])
+
+   .. group-tab:: XML
+
+      .. code-block:: xml
+
+        <!-- Currently unsupported -->
+
+   .. group-tab:: YAML
+
+      .. code-block:: yaml
+
+        # Currently unsupported
+
+Launching many nodes
+^^^^^^^^^^^^^^^^^^^^
+
 Each launch file performs the following actions:
 
 * Setup command line arguments with defaults
@@ -315,7 +624,7 @@ Each launch file performs the following actions:
                 from: "/output/cmd_vel"
                 to: "/turtlesim2/turtle1/cmd_vel"
 
-Using the Launch files from the command line
+Using launch files from the command line
 --------------------------------------------
 
 Launching
@@ -370,9 +679,9 @@ Python, XML, or YAML: Which should I use?
 
 For most applications the choice of which ROS 2 launch format comes down to developer preference.
 However, if your launch file requires flexibility that you cannot achieve with XML or YAML, you can use Python to write your launch file.
-Using Python for ROS 2 launch is more flexible because of following two reasons:
+Using Python for ROS 2 launch is more flexible because:
 
 * Python is a scripting language, and thus you can leverage the language and its libraries in your launch files.
-* `ros2/launch <https://github.com/ros2/launch>`_ (general launch features) and `ros2/launch_ros <https://github.com/ros2/launch_ros>`_ (ROS 2 specific launch features) are written in Python and thus you have lower level access to launch features that may not be exposed by XML and YAML.
+* `ros2/launch <https://github.com/ros2/launch>`_ (general launch features) and `ros2/launch_ros <https://github.com/ros2/launch_ros>`_ (ROS 2 specific launch features) are written in Python and thus you have lower level access to launch features that may not be yet exposed via XML and YAML.
 
 That being said, a launch file written in Python may be more complex and verbose than one in XML or YAML.
