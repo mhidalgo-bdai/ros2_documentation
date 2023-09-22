@@ -18,18 +18,38 @@ These descriptions are then executed, starting processes, monitoring them, repor
 Moving parts
 ------------
 
-``launch`` works with _actions_, abstract representations of computational procedures with side effects on its execution environment. Logging to standard output, executing a program, shutting down ``launch`` itself, are examples of actions. An action may also encompass another action or a collection thereof to describe more complex functionality. A collection of actions makes up the _description_ of a procedure that ``launch`` can take and execute. These descriptions are typically read from source files, so called _launch files_, which may be written in Python, or using specific XML or YAML syntax.
+``launch`` works with [_actions_](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.Action), abstract representations of computational procedures with side effects on its execution environment.
+Logging to standard output, executing a program, forcing a ``launch`` shutdown, are examples of actions.
+An action may also encompass another action or a collection thereof to describe more complex functionality.
+A collection of actions makes up the [_description_](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.LaunchDescription) of a procedure that ``launch`` can take and execute.
+These descriptions are typically read from [sources](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.LaunchDescriptionSource), so called _launch files_, which may be written in Python, or using specific XML or YAML syntax.
 
-While the extent of the execution environment of an action depends on its nature e.g. logging to standard output is circumscribed to the ``launch`` process whereas executing a program reaches out to the host operating system, ``launch`` maintains an execution _context_ in which these actions take place and through which these can interact between them and with the user.
-The ``launch`` context holds _configuration variables_ (i.e. state) and propagates _events_, both of which are available to actions and to ``launch`` itself.
-Events are signals that originate internally in actions or externally on user input. It is through events, for example, that ``launch`` description execution (i.e. inclusion) is triggered.
-Configuration variables populate the ``launch`` context. It is through configuration variables, for example, that ``launch`` descriptions can take arguments before execution.
+While the extent of the execution environment of an action depends on its nature e.g. logging to standard output is circumscribed to the ``launch`` process whereas executing a program reaches out to the host operating system, ``launch`` maintains an execution [_context_](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.LaunchContext) in which these actions take place and through which these can interact between them and with the user.
+The ``launch`` context holds _configuration variables_ and propagates _events_, both of which are available to actions and to ``launch`` itself:
 
-In connection with its context, ``launch`` defines _conditions_, _substitutions_, and _event handlers_ to broaden its scope of application.
-The first two are different forms of expressions evaluated in ``launch`` context (though they may also tap into the larger execution environment): conditions are boolean predicates, used to define conditional actions, while substitutions are string interpolation expressions that enable dynamic ``launch`` descriptions.
-Event handlers, on the other hand, are collections of actions registered for execution when and if the corresponding event occurs.
+* Configuration variables populate the ``launch`` context as shared state.
+  It is as configuration variables, for example, that arguments to ``launch`` descriptions are made available.
+  Configuration variables are organized in scopes with visibility and persistence implications.
+  These scopes are, however, not implicitly managed by the ``launch`` context but explicitly defined through [pushing](https://docs.ros.org/en/rolling/p/launch/launch.actions.html#launch.actions.PushLaunchConfigurations) and [popping](https://docs.ros.org/en/rolling/p/launch/launch.actions.html#launch.actions.PopLaunchConfigurations) actions.
+  In general and by default, all configuration variables live in the same scope.
 
-As it may be apparent by now, ``launch`` descriptions are essentially programs in a domain specific language tailored for process orchestration, and, in particular, ROS 2 system orchestration. When composed using the building blocks available in its native Python implementation, these descriptions resemble `ASTs <https://en.wikipedia.org/wiki/Abstract_syntax_tree>`_ in procedural programming languages. The analogy has its limits: context is not implicitly restricted to syntactical boundaries like it would for typical variable scopes, and action execution is naturally concurrent as opposed to sequential, to name a few. However, it does bring about an important distinction that is easy to miss when writing launch files in Python: no action nor condition nor substitution carries out a computation upon instantiation but simply specifies a computation to be carried out in runtime.
+* [Events](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.Event) are signals emitted and reacted on by actions or ``launch`` itself.
+  An action completing, a process exiting, ``launch`` shutting down, are examples of events.
+  These signals have no inherent side effects, only those that result from actions handling them (if any).
+  Events only exist within the ``launch`` context, but are not bound to any scopes.
+
+Actions and events are the main moving parts in ``launch``, even if events are used indirectly more often than not (i.e. it is through events that the ``launch`` internal event loop is driven).
+In addition to these, and to better leverage configuration variables, ``launch`` defines _conditions_, _substitutions_, and _event handlers_:
+
+* [Conditions](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.Condition) encapsulate boolean predicates evaluated in ``launch`` context, and therefore in runtime.
+  These are mainly used to define actions that execute _if__ or _unless_ a given boolean predicate turns out to be true.
+* [Substitutions](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.Substitution) are string interpolation expressions evaluated in ``launch`` context, though these may also tap into the larger execution environment.
+  Evaluating a configuration variable value, fetching an environment variable value, retrieve the absolute path in the filesystem of an executable file, are examples of substitutions.
+  Substitutions are the closest to general purpose expressions in ``launch``, enabling dynamic ``launch`` descriptions.
+* [Event handlers](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.EventHandler) are similar to actions, but their execution is bound to the occurrence of an specific set of events.
+  These are typically defined in terms of a collection of actions to execute when and if a matching event occurs.
+
+In a way, ``launch`` descriptions are essentially programs in a domain specific language tailored for process orchestration, and, in particular, ROS 2 system orchestration. When composed using the building blocks available in its native Python implementation, these descriptions resemble `ASTs <https://en.wikipedia.org/wiki/Abstract_syntax_tree>`_ in procedural programming languages. The analogy has its limits: context is not implicitly restricted to syntactical boundaries like it would for typical variable scopes, and action execution is naturally concurrent as opposed to sequential, to name a few. However, it does bring about an important distinction that is easy to miss when writing launch files in Python: no action nor condition nor substitution carries out a computation upon instantiation but simply specifies a computation to be carried out in runtime.
 
 .. note::
 
@@ -50,5 +70,5 @@ References
 ----------
 
 The most thorough reference on the design of ``launch`` is, unsurprisingly, its seminal `design document <https://design.ros2.org/articles/roslaunch.html>`__ (which even includes functionality not yet available).
-[``launch`` documentation](https://docs.ros.org/en/rolling/p/launch`` complements it, detailing the architecture of the core Python library.
+[``launch`` documentation](https://docs.ros.org/en/rolling/p/launch) complements it, detailing the architecture of the core Python library.
 For everything else, both ``launch`` and ``launch_ros`` APIs are documented.
