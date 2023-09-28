@@ -42,14 +42,14 @@ Actions and events are the main moving parts in ``launch``, even if events are u
 In addition to these, and to better leverage configuration variables, ``launch`` defines _conditions_, _substitutions_, and _event handlers_:
 
 * [Conditions](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.Condition) encapsulate boolean predicates evaluated in ``launch`` context, and therefore in runtime.
-  These are mainly used to define actions that execute _if__ or _unless_ a given boolean predicate turns out to be true.
+  These are mainly used to define actions that execute _if_ or _unless_ a given boolean predicate turns out to be true.
 * [Substitutions](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.Substitution) are string interpolation expressions evaluated in ``launch`` context, though these may also tap into the larger execution environment.
-  Evaluating a configuration variable value, fetching an environment variable value, retrieve the absolute path in the filesystem of an executable file, are examples of substitutions.
+  Evaluating a configuration variable value, fetching an environment variable value, retrieving the absolute path in the filesystem of an executable file, are examples of substitutions.
   Substitutions are the closest to general purpose expressions in ``launch``, enabling dynamic ``launch`` descriptions.
 * [Event handlers](https://docs.ros.org/en/rolling/p/launch/launch.html#launch.EventHandler) are similar to actions, but their execution is bound to the occurrence of an specific set of events.
   These are typically defined in terms of a collection of actions to execute when and if a matching event occurs.
 
-In a way, ``launch`` descriptions are essentially programs in a domain specific language tailored for process orchestration, and, in particular, ROS 2 system orchestration. When composed using the building blocks available in its native Python implementation, these descriptions resemble `ASTs <https://en.wikipedia.org/wiki/Abstract_syntax_tree>`_ in procedural programming languages. The analogy has its limits: context is not implicitly restricted to syntactical boundaries like it would for typical variable scopes, and action execution is naturally concurrent as opposed to sequential, to name a few. However, it does bring about an important distinction that is easy to miss when writing launch files in Python: no action nor condition nor substitution carries out a computation upon instantiation but simply specifies a computation to be carried out in runtime.
+In a way, ``launch`` descriptions are analogous to programs in a domain specific language tailored for process orchestration, and, in particular, ROS 2 system orchestration. When composed using the building blocks available in its native Python implementation, these descriptions resemble `ASTs <https://en.wikipedia.org/wiki/Abstract_syntax_tree>`_ in procedural programming languages. The analogy has its limits, however: context is not implicitly restricted to syntactical boundaries like it would for typical variable scopes, and action execution is naturally concurrent as opposed to sequential, to name a few. However, it does bring about an important distinction that is easy to miss when writing launch files in Python: no action nor condition nor substitution carries out a computation upon instantiation but simply specifies a computation to be carried out in runtime.
 
 .. note::
 
